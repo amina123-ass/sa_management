@@ -1,0 +1,65 @@
+/* Styles pour les boutons d'action avec texte */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.medical-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.medical-action-btn .btn-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.medical-action-btn .btn-text {
+  font-size: 14px;
+}
+
+/* Bouton Modifier */
+.medical-action-btn.edit-btn {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.medical-action-btn.edit-btn:hover {
+  background-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Bouton Supprimer */
+.medical-action-btn.delete-btn {
+  background-color: #ef4444;
+  color: white;
+}
+
+.medical-action-btn.delete-btn:hover {
+  background-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Responsive - Sur petits écrans, cacher le texte */
+@media (max-width: 768px) {
+  .medical-action-btn .btn-text {
+    display: none;
+  }
+  
+  .medical-action-btn {
+    padding: 8px 12px;
+  }
+}

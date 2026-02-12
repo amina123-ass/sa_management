@@ -41,6 +41,7 @@ apiClient.interceptors.response.use(
 export default apiClient;
 
 // Services d'authentification
+// Services d'authentification
 export const authService = {
   register: (data) => apiClient.post('/auth/register', data),
   verifyEmail: (data) => apiClient.post('/auth/verify-email', data),
@@ -51,7 +52,10 @@ export const authService = {
   forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
   resetPassword: (data) => apiClient.post('/auth/reset-password', data),
   getSecurityQuestions: (email) => apiClient.post('/auth/security-questions', { email }),
+  
+  // ✅ CORRECTION : Bon endpoint et format de données
   verifySecurityAnswers: (data) => apiClient.post('/auth/verify-security-answers', data),
+  
   getAllSecurityQuestions: () => apiClient.get('/auth/security-questions/all'),
 };
 

@@ -40,6 +40,68 @@ const validationSchema = Yup.object({
   answer3: Yup.string().required('La réponse est obligatoire'),
 });
 
+// ✅ Configuration MenuProps ULTRA RENFORCÉE
+const menuProps = {
+  PaperProps: {
+    style: {
+      backgroundColor: '#ffffff',
+      color: '#000000',
+      maxHeight: 300,
+      marginTop: 8,
+    },
+    sx: {
+      bgcolor: '#ffffff !important',
+      color: '#000000 !important',
+      boxShadow: '0 4px 20px rgba(0,0,0,0.15) !important',
+      border: '1px solid #e0e0e0 !important',
+      '& .MuiList-root': {
+        bgcolor: '#ffffff !important',
+        color: '#000000 !important',
+        padding: '8px 0 !important',
+      },
+      '& .MuiMenuItem-root': {
+        color: '#000000 !important',
+        backgroundColor: '#ffffff !important',
+        fontSize: '0.95rem !important',
+        padding: '12px 16px !important',
+        minHeight: '48px !important',
+        display: 'flex !important',
+        alignItems: 'center !important',
+        lineHeight: '1.5 !important',
+        whiteSpace: 'normal !important',
+        wordBreak: 'break-word !important',
+        opacity: '1 !important',
+        visibility: 'visible !important',
+        '&:hover': {
+          backgroundColor: 'rgba(25, 118, 210, 0.08) !important',
+          color: '#000000 !important',
+        },
+        '&.Mui-selected': {
+          backgroundColor: 'rgba(25, 118, 210, 0.12) !important',
+          color: '#000000 !important',
+          fontWeight: '500 !important',
+          '&:hover': {
+            backgroundColor: 'rgba(25, 118, 210, 0.16) !important',
+          },
+        },
+        '&.Mui-focusVisible': {
+          backgroundColor: 'rgba(25, 118, 210, 0.12) !important',
+        },
+      },
+    },
+  },
+  MenuListProps: {
+    style: {
+      backgroundColor: '#ffffff',
+      color: '#000000',
+    },
+    sx: {
+      bgcolor: '#ffffff !important',
+      color: '#000000 !important',
+    },
+  },
+};
+
 const VerifyEmailPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -63,10 +125,12 @@ const VerifyEmailPage = () => {
     const fetchQuestions = async () => {
       try {
         const response = await authService.getAllSecurityQuestions();
+        console.log('Questions récupérées:', response.data.data); // ✅ DEBUG
         if (response.data.success) {
           setQuestions(response.data.data);
         }
       } catch (err) {
+        console.error('Erreur chargement questions:', err); // ✅ DEBUG
         setError('Erreur lors du chargement des questions de sécurité');
       } finally {
         setLoading(false);
@@ -93,7 +157,7 @@ const VerifyEmailPage = () => {
       const selectedQuestions = [values.question1, values.question2, values.question3];
       const uniqueQuestions = new Set(selectedQuestions.filter(Boolean));
       
-      if (uniqueQuestions.size !== 3) {
+      if (uniqueQuestions.size !== 3 && selectedQuestions.filter(Boolean).length === 3) {
         errors.question1 = 'Veuillez sélectionner 3 questions différentes';
         errors.question2 = 'Veuillez sélectionner 3 questions différentes';
         errors.question3 = 'Veuillez sélectionner 3 questions différentes';
@@ -102,38 +166,53 @@ const VerifyEmailPage = () => {
       return errors;
     },
     onSubmit: async (values, { setSubmitting }) => {
-      setError('');
-      setSuccess(false);
+    setError('');
+    setSuccess(false);
 
-      const security_answers = [
-        { question_id: parseInt(values.question1), answer: values.answer1 },
-        { question_id: parseInt(values.question2), answer: values.answer2 },
-        { question_id: parseInt(values.question3), answer: values.answer3 },
-      ];
+    const security_answers = [
+      { question_id: parseInt(values.question1), answer: values.answer1 },
+      { question_id: parseInt(values.question2), answer: values.answer2 },
+      { question_id: parseInt(values.question3), answer: values.answer3 },
+    ];
 
-      try {
-        const response = await authService.verifyEmail({
-          email,
-          token,
-          password: values.password,
-          password_confirmation: values.password_confirmation,
-          security_answers,
-        });
+    const payload = {
+      email,
+      token,
+      password: values.password,
+      password_confirmation: values.password_confirmation,
+      security_answers,
+    };
 
-        if (response.data.success) {
-          setSuccess(true);
-          setTimeout(() => {
-            navigate('/login');
-          }, 3000);
-        } else {
-          setError(response.data.message);
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || 'Une erreur est survenue');
-      } finally {
-        setSubmitting(false);
+    // ✅ AJOUT : Logger le payload
+    console.log('🚀 Payload envoyé à l\'API:', payload);
+    console.log('📋 Questions sélectionnées:', {
+      question1: values.question1,
+      question2: values.question2,
+      question3: values.question3,
+    });
+    console.log('📝 Nombre de questions disponibles:', questions.length);
+
+    try {
+      const response = await authService.verifyEmail(payload);
+      
+      console.log('✅ Réponse API:', response.data);
+
+      if (response.data.success) {
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
+      } else {
+        setError(response.data.message);
       }
-    },
+    } catch (err) {
+      console.error('❌ Erreur complète:', err);
+      console.error('❌ Réponse erreur:', err.response?.data);
+      setError(err.response?.data?.message || 'Une erreur est survenue');
+    } finally {
+      setSubmitting(false);
+    }
+  },
   });
 
   if (loading) {
@@ -164,7 +243,9 @@ const VerifyEmailPage = () => {
               border: '1px solid #e0e0e0',
             }}
           >
-            <Alert severity="error" sx={{ borderRadius: 2 }}>Lien de vérification invalide</Alert>
+            <Alert severity="error" sx={{ borderRadius: 2 }}>
+              Lien de vérification invalide
+            </Alert>
             <Button 
               variant="contained" 
               sx={{ 
@@ -195,6 +276,9 @@ const VerifyEmailPage = () => {
 
     return questions.filter(q => !selectedQuestions.includes(q.id.toString()));
   };
+
+  // ✅ DEBUG: Afficher le nombre de questions
+  console.log('Nombre de questions disponibles:', questions.length);
 
   return (
     <Container component="main" maxWidth="md">
@@ -345,6 +429,9 @@ const VerifyEmailPage = () => {
                   onBlur={formik.handleBlur}
                   error={formik.touched[`question${num}`] && Boolean(formik.errors[`question${num}`])}
                   helperText={formik.touched[`question${num}`] && formik.errors[`question${num}`]}
+                  SelectProps={{
+                    MenuProps: menuProps,
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': {
@@ -357,8 +444,17 @@ const VerifyEmailPage = () => {
                   }}
                 >
                   {getAvailableQuestions(`question${num}`).map((q) => (
-                    <MenuItem key={q.id} value={q.id.toString()}>
-                      {q.question_fr}
+                    <MenuItem 
+                      key={q.id} 
+                      value={q.id.toString()}
+                      style={{
+                        color: '#000000',
+                        backgroundColor: '#ffffff',
+                        padding: '12px 16px',
+                        fontSize: '0.95rem',
+                      }}
+                    >
+                      {q.question_fr || q.question || 'Question sans texte'}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -403,6 +499,9 @@ const VerifyEmailPage = () => {
                 fontWeight: 500,
                 '&:hover': {
                   backgroundColor: '#1565c0',
+                },
+                '&:disabled': {
+                  backgroundColor: '#90caf9',
                 }
               }}
               disabled={formik.isSubmitting || success}

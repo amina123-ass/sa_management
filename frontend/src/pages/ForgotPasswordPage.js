@@ -49,6 +49,47 @@ const securityQuestionsSchema = Yup.object({
     .required('La confirmation est obligatoire'),
 });
 
+// ✅ Fonction robuste pour extraire le texte de la question
+const getQuestionText = (questionObj) => {
+  // 🔍 DEBUG: Afficher la structure complète de l'objet question
+  console.log('📋 Structure de la question:', JSON.stringify(questionObj, null, 2));
+  
+  // Cas 1: Objet avec propriété security_question imbriquée
+  if (questionObj.security_question) {
+    console.log('✅ Trouvé security_question:', questionObj.security_question);
+    return questionObj.security_question.question_fr || 
+           questionObj.security_question.question || 
+           questionObj.security_question.text;
+  }
+  
+  // Cas 2: Objet avec propriété question imbriquée
+  if (questionObj.question && typeof questionObj.question === 'object') {
+    console.log('✅ Trouvé question object:', questionObj.question);
+    return questionObj.question.question_fr || 
+           questionObj.question.text;
+  }
+  
+  // Cas 3: Propriétés directes
+  const directText = questionObj.question_fr || 
+                     questionObj.question || 
+                     questionObj.text || 
+                     questionObj.question_text ||
+                     questionObj.label ||
+                     questionObj.questionFr ||
+                     questionObj.questionText ||
+                     questionObj.securityQuestion?.question_fr ||
+                     questionObj.securityQuestion?.question;
+  
+  if (directText) {
+    console.log('✅ Trouvé texte direct:', directText);
+    return directText;
+  }
+  
+  // Cas 4: Fallback - afficher toutes les clés pour debug
+  console.warn('⚠️ Aucun texte trouvé. Clés disponibles:', Object.keys(questionObj));
+  return `Question ${questionObj.id || 'inconnue'}`;
+};
+
 const ForgotPasswordPage = () => {
   const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
@@ -88,46 +129,54 @@ const ForgotPasswordPage = () => {
   });
 
   const securityFormik = useFormik({
-    initialValues: {
-      email: '',
-      answer1: '',
-      answer2: '',
-      answer3: '',
-      password: '',
-      password_confirmation: '',
-    },
-    validationSchema: securityQuestionsSchema,
-    onSubmit: async (values, { setSubmitting }) => {
-      setError('');
+  initialValues: {
+    email: '',
+    answer1: '',
+    answer2: '',
+    answer3: '',
+    password: '',
+    password_confirmation: '',
+  },
+  validationSchema: securityQuestionsSchema,
+  onSubmit: async (values, { setSubmitting }) => {
+    setError('');
 
-      const answers = questions.map((q, index) => ({
-        id: q.id,
-        answer: values[`answer${index + 1}`],
-      }));
+    // ✅ Format correct des données
+    const payload = {
+      email: values.email,
+      answers: questions.map((q, index) => ({
+        id: q.id,  // ID de la réponse dans user_security_answers
+        answer: values[`answer${index + 1}`]
+      })),
+      password: values.password,
+      password_confirmation: values.password_confirmation,
+    };
 
-      try {
-        const response = await authService.verifySecurityAnswers({
-          email: values.email,
-          answers,
-          password: values.password,
-          password_confirmation: values.password_confirmation,
-        });
+    // ✅ DEBUG : Logger les données envoyées
+    console.log('🔍 Payload envoyé:', payload);
+    console.log('📋 Questions:', questions);
 
-        if (response.data.success) {
-          toast.success('Mot de passe réinitialisé avec succès');
-          setTimeout(() => {
-            navigate('/login');
-          }, 2000);
-        } else {
-          setError(response.data.message);
-        }
-      } catch (err) {
-        setError(err.response?.data?.message || 'Une erreur est survenue');
-      } finally {
-        setSubmitting(false);
+    try {
+      const response = await authService.verifySecurityAnswers(payload);
+
+      console.log('✅ Réponse API:', response.data);
+
+      if (response.data.success) {
+        toast.success('Mot de passe réinitialisé avec succès');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setError(response.data.message);
       }
-    },
-  });
+    } catch (err) {
+      console.error('❌ Erreur API:', err.response);
+      setError(err.response?.data?.message || 'Une erreur est survenue');
+    } finally {
+      setSubmitting(false);
+    }
+  },
+});
 
   const handleGetQuestions = async () => {
     if (!securityFormik.values.email) {
@@ -138,13 +187,36 @@ const ForgotPasswordPage = () => {
     setError('');
     try {
       const response = await authService.getSecurityQuestions(securityFormik.values.email);
+      
+      // ✅ DEBUG COMPLET
+      console.log('🔍 ===== DEBUG RÉCUPÉRATION QUESTIONS =====');
+      console.log('📦 Réponse API complète:', response);
+      console.log('📦 response.data:', response.data);
+      console.log('📦 response.data.data:', response.data.data);
+      console.log('📦 Type de response.data.data:', Array.isArray(response.data.data) ? 'Array' : typeof response.data.data);
+      
       if (response.data.success) {
-        setQuestions(response.data.data);
+        const questionsData = response.data.data;
+        
+        // ✅ Afficher chaque question individuellement
+        console.log('📋 Nombre de questions:', questionsData.length);
+        questionsData.forEach((q, index) => {
+          console.log(`\n📌 Question ${index + 1}:`);
+          console.log('  - Objet complet:', q);
+          console.log('  - ID:', q.id);
+          console.log('  - Clés disponibles:', Object.keys(q));
+          console.log('  - Texte extrait:', getQuestionText(q));
+        });
+        console.log('🔍 ===== FIN DEBUG =====\n');
+        
+        setQuestions(questionsData);
         setShowQuestions(true);
       } else {
         setError(response.data.message);
       }
     } catch (err) {
+      console.error('❌ Erreur récupération questions:', err);
+      console.error('❌ Détails erreur:', err.response);
       setError(err.response?.data?.message || 'Une erreur est survenue');
     }
   };
@@ -362,43 +434,88 @@ const ForgotPasswordPage = () => {
                 </>
               ) : (
                 <>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
                     Répondez à vos questions de sécurité et créez un nouveau mot de passe.
                   </Typography>
 
-                  {questions.map((question, index) => (
-                    <TextField
-                      key={question.id}
-                      fullWidth
-                      margin="normal"
-                      id={`answer${index + 1}`}
-                      name={`answer${index + 1}`}
-                      label={question.question_fr}
-                      value={securityFormik.values[`answer${index + 1}`]}
-                      onChange={securityFormik.handleChange}
-                      onBlur={securityFormik.handleBlur}
-                      error={
-                        securityFormik.touched[`answer${index + 1}`] &&
-                        Boolean(securityFormik.errors[`answer${index + 1}`])
-                      }
-                      helperText={
-                        securityFormik.touched[`answer${index + 1}`] &&
-                        securityFormik.errors[`answer${index + 1}`]
-                      }
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '&:hover fieldset': {
-                            borderColor: '#1976d2',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#1976d2',
-                          },
-                        }
-                      }}
-                    />
-                  ))}
+                  {/* ✅ Affichage des questions avec extraction robuste */}
+                  {questions.map((question, index) => {
+                    const questionText = getQuestionText(question);
+                    
+                    return (
+                      <Box key={question.id || index} sx={{ mb: 3 }}>
+                        {/* ✅ Question affichée avec style amélioré */}
+                        <Box
+                          sx={{
+                            bgcolor: '#f5f5f5',
+                            p: 2,
+                            borderRadius: 1,
+                            mb: 1.5,
+                            border: '1px solid #e0e0e0',
+                          }}
+                        >
+                          <Typography 
+                            variant="body2" 
+                            fontWeight={600}
+                            color="#1976d2"
+                            sx={{ 
+                              fontSize: '0.875rem',
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            Question {index + 1}
+                          </Typography>
+                          <Typography 
+                            variant="body1" 
+                            color="text.primary"
+                            sx={{ 
+                              mt: 0.5,
+                              fontSize: '1rem',
+                              lineHeight: 1.5,
+                              fontWeight: 500,
+                            }}
+                          >
+                            {questionText}
+                          </Typography>
+                        </Box>
+                        
+                        <TextField
+                          fullWidth
+                          id={`answer${index + 1}`}
+                          name={`answer${index + 1}`}
+                          label={`Réponse ${index + 1}`}
+                          placeholder="Entrez votre réponse"
+                          value={securityFormik.values[`answer${index + 1}`]}
+                          onChange={securityFormik.handleChange}
+                          onBlur={securityFormik.handleBlur}
+                          error={
+                            securityFormik.touched[`answer${index + 1}`] &&
+                            Boolean(securityFormik.errors[`answer${index + 1}`])
+                          }
+                          helperText={
+                            securityFormik.touched[`answer${index + 1}`] &&
+                            securityFormik.errors[`answer${index + 1}`]
+                          }
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              bgcolor: '#ffffff',
+                              '&:hover fieldset': {
+                                borderColor: '#1976d2',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#1976d2',
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: 'rgba(0, 0, 0, 0.6) !important',
+                            },
+                          }}
+                        />
+                      </Box>
+                    );
+                  })}
 
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 3, mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mt: 4, mb: 2 }}>
                     Nouveau mot de passe
                   </Typography>
 
@@ -422,7 +539,10 @@ const ForgotPasswordPage = () => {
                         '&.Mui-focused fieldset': {
                           borderColor: '#1976d2',
                         },
-                      }
+                      },
+                      '& .MuiInputLabel-root': {
+                        color: 'rgba(0, 0, 0, 0.6) !important',
+                      },
                     }}
                     InputProps={{
                       endAdornment: (
@@ -464,7 +584,10 @@ const ForgotPasswordPage = () => {
                         '&.Mui-focused fieldset': {
                           borderColor: '#1976d2',
                         },
-                      }
+                      },
+                      '& .MuiInputLabel-root': {
+                        color: 'rgba(0, 0, 0, 0.6) !important',
+                      },
                     }}
                     InputProps={{
                       endAdornment: (
@@ -508,7 +631,10 @@ const ForgotPasswordPage = () => {
                   <Button
                     fullWidth
                     variant="outlined"
-                    onClick={() => setShowQuestions(false)}
+                    onClick={() => {
+                      setShowQuestions(false);
+                      securityFormik.resetForm();
+                    }}
                     sx={{
                       textTransform: 'none',
                       fontWeight: 500,

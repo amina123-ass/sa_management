@@ -193,31 +193,47 @@ class AuthController extends Controller
      */
     public function verifyEmailAndCompleteAccount(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'token' => 'required|string',
-            'password' => ['required', 'confirmed', Password::min(8)
-                ->mixedCase()
-                ->numbers()
-                ->symbols()
-            ],
-            'security_answers' => 'required|array|min:3|max:3',
-            'security_answers.*.question_id' => 'required|exists:security_questions,id',
-            'security_answers.*.answer' => 'required|string|min:2',
-        ], [
-            'password.min' => 'Le mot de passe doit contenir au moins 8 caractères',
-            'security_answers.required' => 'Vous devez répondre à 3 questions de sécurité',
-            'security_answers.min' => 'Vous devez répondre à exactement 3 questions',
-            'security_answers.max' => 'Vous devez répondre à exactement 3 questions',
-        ]);
+         \Log::info('=== VERIFY EMAIL REQUEST ===', [
+        'all_data' => $request->all(),
+        'email' => $request->email,
+        'token' => $request->token ? 'present' : 'missing',
+        'password' => $request->password ? 'present' : 'missing',
+        'security_answers' => $request->security_answers,
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur de validation',
-                'errors' => $validator->errors()
-            ], 422);
-        }
+    $validator = Validator::make($request->all(), [
+        'email' => 'required|email',
+        'token' => 'required|string',
+        'password' => ['required', 'confirmed', Password::min(8)
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+        ],
+        'security_answers' => 'required|array|min:3|max:3',
+        'security_answers.*.question_id' => 'required|exists:security_questions,id',
+        'security_answers.*.answer' => 'required|string|min:2',
+    ], [
+        'password.min' => 'Le mot de passe doit contenir au moins 8 caractères',
+        'security_answers.required' => 'Vous devez répondre à 3 questions de sécurité',
+        'security_answers.min' => 'Vous devez répondre à exactement 3 questions',
+        'security_answers.max' => 'Vous devez répondre à exactement 3 questions',
+    ]);
+
+    if ($validator->fails()) {
+        // ✅ AJOUT : Logger les erreurs de validation
+        \Log::error('=== VALIDATION FAILED ===', [
+            'errors' => $validator->errors()->toArray(),
+            'request_data' => $request->all()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur de validation',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+
 
         try {
             DB::beginTransaction();
@@ -562,132 +578,203 @@ class AuthController extends Controller
     /**
      * Obtenir les questions de sécurité d'un utilisateur
      */
-    public function getSecurityQuestions(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:users,email',
-        ]);
+    /**
+ * Obtenir les questions de sécurité d'un utilisateur
+ */
+public function getSecurityQuestions(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'email' => 'required|email|exists:users,email',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur de validation',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $user = User::where('email', $request->email)->first();
-
-            $securityAnswers = UserSecurityAnswer::where('user_id', $user->id)
-                ->with('securityQuestion')
-                ->get();
-
-            if ($securityAnswers->count() === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Aucune question de sécurité configurée pour cet utilisateur'
-                ], 404);
-            }
-
-            $questions = $securityAnswers->map(function ($answer) {
-                return [
-                    'id' => $answer->id,
-                    'question_id' => $answer->security_question_id,
-                    'question_fr' => $answer->securityQuestion->question_fr,
-                    'question_ar' => $answer->securityQuestion->question_ar,
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $questions
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Une erreur est survenue',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur de validation',
+            'errors' => $validator->errors()
+        ], 422);
     }
+
+    try {
+        $user = User::where('email', $request->email)->first();
+
+        $securityAnswers = UserSecurityAnswer::where('user_id', $user->id)
+            ->with('securityQuestion')
+            ->get();
+
+        if ($securityAnswers->count() === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Aucune question de sécurité configurée pour cet utilisateur'
+            ], 404);
+        }
+
+        // ✅ CORRECTION : Utiliser question_fr
+        $questions = $securityAnswers->map(function ($answer) {
+            return [
+                'id' => $answer->id,
+                'question_id' => $answer->security_question_id,
+                'question_fr' => $answer->securityQuestion->question_fr ?? null,  // ✅ CORRIGÉ
+                'question_ar' => null,  // Si tu n'as pas de question_ar dans ta table
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $questions
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Une erreur est survenue',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
     /**
      * Vérifier les réponses aux questions de sécurité et réinitialiser le mot de passe
      */
-    public function verifySecurityAnswersAndResetPassword(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:users,email',
-            'answers' => 'required|array|min:3',
-            'answers.*.id' => 'required|exists:user_security_answers,id',
-            'answers.*.answer' => 'required|string',
-            'password' => ['required', 'confirmed', Password::min(8)
-                ->mixedCase()
-                ->numbers()
-                ->symbols()
-            ],
+    /**
+ * Vérifier les réponses aux questions de sécurité et réinitialiser le mot de passe
+ */
+public function verifySecurityAnswersAndResetPassword(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'email' => 'required|email|exists:users,email',
+        'answers' => 'required|array|min:3|max:3',
+        'answers.*.id' => 'required|exists:user_security_answers,id',
+        'answers.*.answer' => 'required|string',
+        'password' => ['required', 'confirmed', Password::min(8)
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+        ],
+    ], [
+        'answers.required' => 'Veuillez répondre aux 3 questions de sécurité',
+        'answers.min' => 'Vous devez répondre à exactement 3 questions',
+        'answers.max' => 'Vous devez répondre à exactement 3 questions',
+        'password.min' => 'Le mot de passe doit contenir au moins 8 caractères',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur de validation',
+            'errors' => $validator->errors()
+        ], 422);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Utilisateur non trouvé'
+            ], 404);
+        }
+
+        // ✅ DEBUG : Logger les données reçues
+        \Log::info('Vérification questions sécurité', [
+            'user_id' => $user->id,
+            'email' => $request->email,
+            'answers_received' => $request->answers
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Erreur de validation',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $user = User::where('email', $request->email)->first();
-
-            // Vérifier toutes les réponses
-            $allCorrect = true;
-            foreach ($request->answers as $answerData) {
-                $userAnswer = UserSecurityAnswer::find($answerData['id']);
-                
-                if (!$userAnswer || $userAnswer->user_id !== $user->id) {
-                    $allCorrect = false;
-                    break;
-                }
-
-                if (!Hash::check(strtolower(trim($answerData['answer'])), $userAnswer->answer_hash)) {
-                    $allCorrect = false;
-                    break;
-                }
+        // Vérifier toutes les réponses
+        $allCorrect = true;
+        $incorrectAnswers = [];
+        
+        foreach ($request->answers as $index => $answerData) {
+            $userAnswer = UserSecurityAnswer::find($answerData['id']);
+            
+            // ✅ Vérifier que la réponse appartient bien à cet utilisateur
+            if (!$userAnswer || $userAnswer->user_id !== $user->id) {
+                \Log::warning('Réponse invalide ou appartient à un autre utilisateur', [
+                    'answer_id' => $answerData['id'],
+                    'expected_user_id' => $user->id,
+                    'actual_user_id' => $userAnswer ? $userAnswer->user_id : null
+                ]);
+                $allCorrect = false;
+                $incorrectAnswers[] = $index + 1;
+                continue;
             }
 
-            if (!$allCorrect) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Une ou plusieurs réponses sont incorrectes'
-                ], 401);
-            }
-
-            // Réinitialiser le mot de passe
-            $user->update([
-                'password' => Hash::make($request->password)
+            // ✅ Normaliser la réponse (minuscules, trim)
+            $providedAnswer = strtolower(trim($answerData['answer']));
+            
+            // ✅ Vérifier le hash
+            $isCorrect = Hash::check($providedAnswer, $userAnswer->answer_hash);
+            
+            \Log::info('Vérification réponse', [
+                'question_index' => $index + 1,
+                'answer_id' => $answerData['id'],
+                'provided_answer_length' => strlen($providedAnswer),
+                'is_correct' => $isCorrect
             ]);
 
-            // Révoquer tous les tokens
-            $user->tokens()->delete();
+            if (!$isCorrect) {
+                $allCorrect = false;
+                $incorrectAnswers[] = $index + 1;
+            }
+        }
 
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Mot de passe réinitialisé avec succès'
-            ], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        // ✅ Si au moins une réponse est incorrecte
+        if (!$allCorrect) {
+            \Log::warning('Réponses incorrectes', [
+                'user_id' => $user->id,
+                'incorrect_questions' => $incorrectAnswers
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Une erreur est survenue',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'Une ou plusieurs réponses sont incorrectes. Veuillez réessayer.'
+            ], 401);
         }
+
+        // ✅ Toutes les réponses sont correctes, mettre à jour le mot de passe
+        \Log::info('Toutes les réponses correctes, mise à jour du mot de passe', [
+            'user_id' => $user->id
+        ]);
+
+        $user->password = Hash::make($request->password);
+        $user->save();
+
+        // ✅ Vérifier que la mise à jour a bien été effectuée
+        $user->refresh();
+        \Log::info('Mot de passe mis à jour', [
+            'user_id' => $user->id,
+            'password_changed' => true
+        ]);
+
+        // Révoquer tous les tokens existants
+        $user->tokens()->delete();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mot de passe réinitialisé avec succès. Vous pouvez maintenant vous connecter.'
+        ], 200);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        
+        \Log::error('Erreur réinitialisation mot de passe', [
+            'email' => $request->email,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Une erreur est survenue lors de la réinitialisation',
+            'error' => config('app.debug') ? $e->getMessage() : 'Erreur serveur'
+        ], 500);
     }
+}
 }

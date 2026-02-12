@@ -108,6 +108,7 @@ const RoleManagement = () => {
       permissions: role.permissions || [],
       is_active: role.is_active,
     });
+    
     setEditDialog(true);
   };
 

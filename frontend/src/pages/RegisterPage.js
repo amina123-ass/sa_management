@@ -13,32 +13,12 @@ import {
   CircularProgress,
   Avatar,
   Grid,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  FormHelperText,
-  Divider,
 } from '@mui/material';
-import { PersonAdd, Security } from '@mui/icons-material';
+import { PersonAdd } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-
-// Liste des questions de sécurité disponibles
-const SECURITY_QUESTIONS = [
-  'Quelle est votre ville de naissance ?',
-  'Quel est le nom de jeune fille de votre mère ?',
-  'Quel était le nom de votre premier animal de compagnie ?',
-  'Quel est votre plat préféré ?',
-  'Quel est le nom de votre école primaire ?',
-  'Quel est votre film préféré ?',
-  'Quelle est votre couleur préférée ?',
-  'Quel est le nom de votre meilleur ami d\'enfance ?',
-  'Dans quelle ville avez-vous rencontré votre conjoint(e) ?',
-  'Quel est le nom de votre premier employeur ?',
-];
 
 const validationSchema = Yup.object({
   nom: Yup.string().required('Le nom est obligatoire'),
@@ -50,22 +30,6 @@ const validationSchema = Yup.object({
     .matches(/^[+]?[\d\s-()]+$/, 'Numéro de téléphone invalide')
     .required('Le téléphone est obligatoire'),
   adresse: Yup.string().required('L\'adresse est obligatoire'),
-  
-  // Validation des questions de sécurité
-  security_question_1: Yup.string().required('Veuillez choisir la première question'),
-  security_answer_1: Yup.string().required('La réponse est obligatoire'),
-  security_question_2: Yup.string()
-    .required('Veuillez choisir la deuxième question')
-    .test('different-from-1', 'Cette question est déjà sélectionnée', function(value) {
-      return value !== this.parent.security_question_1;
-    }),
-  security_answer_2: Yup.string().required('La réponse est obligatoire'),
-  security_question_3: Yup.string()
-    .required('Veuillez choisir la troisième question')
-    .test('different-from-1-2', 'Cette question est déjà sélectionnée', function(value) {
-      return value !== this.parent.security_question_1 && value !== this.parent.security_question_2;
-    }),
-  security_answer_3: Yup.string().required('La réponse est obligatoire'),
 });
 
 const RegisterPage = () => {
@@ -81,12 +45,6 @@ const RegisterPage = () => {
       email: '',
       telephone: '',
       adresse: '',
-      security_question_1: '',
-      security_answer_1: '',
-      security_question_2: '',
-      security_answer_2: '',
-      security_question_3: '',
-      security_answer_3: '',
     },
     validationSchema,
     onSubmit: async (values, { setSubmitting }) => {
@@ -107,13 +65,6 @@ const RegisterPage = () => {
       setSubmitting(false);
     },
   });
-
-  // Fonction pour filtrer les questions déjà sélectionnées
-  const getAvailableQuestions = (currentQuestion, excludeQuestions = []) => {
-    return SECURITY_QUESTIONS.filter(
-      q => q === currentQuestion || !excludeQuestions.includes(q)
-    );
-  };
 
   return (
     <Container component="main" maxWidth="md">
@@ -152,7 +103,10 @@ const RegisterPage = () => {
             <Typography component="h1" variant="h4" fontWeight={600} color="#1976d2" gutterBottom>
               SA Management
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+            >
               Créez votre compte
             </Typography>
           </Box>
@@ -184,11 +138,6 @@ const RegisterPage = () => {
           )}
 
           <Box component="form" onSubmit={formik.handleSubmit} sx={{ mt: 3 }}>
-            {/* Informations personnelles */}
-            <Typography variant="h6" fontWeight={600} color="#1976d2" sx={{ mb: 2 }}>
-              Informations personnelles
-            </Typography>
-            
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -314,375 +263,10 @@ const RegisterPage = () => {
               </Grid>
             </Grid>
 
-            <Divider sx={{ my: 4 }} />
-
-            {/* Questions de sécurité */}
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                mb: 3,
-                p: 2,
-                bgcolor: '#e3f2fd',
-                borderRadius: 2,
-                border: '2px solid #1976d2',
-              }}
-            >
-              <Security sx={{ fontSize: 32, color: '#1976d2', mr: 2 }} />
-              <Box>
-                <Typography variant="h6" fontWeight={600} color="#1976d2">
-                  Questions de sécurité
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Choisissez 3 questions différentes pour sécuriser votre compte
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Question 1 */}
-            <Box 
-              sx={{ 
-                mb: 3, 
-                p: 3, 
-                bgcolor: '#f8f9fa', 
-                borderRadius: 2,
-                border: '1px solid #dee2e6',
-              }}
-            >
-              <Typography 
-                variant="subtitle1" 
-                fontWeight={600} 
-                color="#000000"
-                sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    bgcolor: '#1976d2',
-                    color: 'white',
-                    fontSize: '0.875rem',
-                    fontWeight: 'bold',
-                    mr: 1.5,
-                  }}
-                >
-                  1
-                </Box>
-                Question 1
-              </Typography>
-              
-              <FormControl 
-                fullWidth 
-                error={formik.touched.security_question_1 && Boolean(formik.errors.security_question_1)}
-                sx={{ mb: 2 }}
-              >
-                <InputLabel id="security-question-1-label">Choisissez une question *</InputLabel>
-                <Select
-                  labelId="security-question-1-label"
-                  id="security_question_1"
-                  name="security_question_1"
-                  value={formik.values.security_question_1}
-                  label="Choisissez une question *"
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  sx={{
-                    bgcolor: 'white',
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em style={{ color: '#999' }}>Sélectionnez une question</em>
-                  </MenuItem>
-                  {getAvailableQuestions(
-                    formik.values.security_question_1,
-                    [formik.values.security_question_2, formik.values.security_question_3]
-                  ).map((question, index) => (
-                    <MenuItem 
-                      key={`q1-${index}`} 
-                      value={question}
-                      style={{
-                        color: '#000',
-                        backgroundColor: 'white',
-                        padding: '10px 16px',
-                        fontSize: '14px',
-                      }}
-                    >
-                      {question}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formik.touched.security_question_1 && formik.errors.security_question_1 && (
-                  <FormHelperText>{formik.errors.security_question_1}</FormHelperText>
-                )}
-              </FormControl>
-
-              <TextField
-                fullWidth
-                id="security_answer_1"
-                name="security_answer_1"
-                label="Votre réponse *"
-                placeholder="Tapez votre réponse"
-                value={formik.values.security_answer_1}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.touched.security_answer_1 && Boolean(formik.errors.security_answer_1)}
-                helperText={formik.touched.security_answer_1 && formik.errors.security_answer_1}
-                disabled={!formik.values.security_question_1}
-                sx={{
-                  bgcolor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Question 2 */}
-            <Box 
-              sx={{ 
-                mb: 3, 
-                p: 3, 
-                bgcolor: '#f8f9fa', 
-                borderRadius: 2,
-                border: '1px solid #dee2e6',
-              }}
-            >
-              <Typography 
-                variant="subtitle1" 
-                fontWeight={600} 
-                color="#000000"
-                sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    bgcolor: '#1976d2',
-                    color: 'white',
-                    fontSize: '0.875rem',
-                    fontWeight: 'bold',
-                    mr: 1.5,
-                  }}
-                >
-                  2
-                </Box>
-                Question 2
-              </Typography>
-              
-              <FormControl 
-                fullWidth 
-                error={formik.touched.security_question_2 && Boolean(formik.errors.security_question_2)}
-                sx={{ mb: 2 }}
-              >
-                <InputLabel id="security-question-2-label">Choisissez une question *</InputLabel>
-                <Select
-                  labelId="security-question-2-label"
-                  id="security_question_2"
-                  name="security_question_2"
-                  value={formik.values.security_question_2}
-                  label="Choisissez une question *"
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  sx={{
-                    bgcolor: 'white',
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em style={{ color: '#999' }}>Sélectionnez une question</em>
-                  </MenuItem>
-                  {getAvailableQuestions(
-                    formik.values.security_question_2,
-                    [formik.values.security_question_1, formik.values.security_question_3]
-                  ).map((question, index) => (
-                    <MenuItem 
-                      key={`q2-${index}`} 
-                      value={question}
-                      style={{
-                        color: '#000',
-                        backgroundColor: 'white',
-                        padding: '10px 16px',
-                        fontSize: '14px',
-                      }}
-                    >
-                      {question}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formik.touched.security_question_2 && formik.errors.security_question_2 && (
-                  <FormHelperText>{formik.errors.security_question_2}</FormHelperText>
-                )}
-              </FormControl>
-
-              <TextField
-                fullWidth
-                id="security_answer_2"
-                name="security_answer_2"
-                label="Votre réponse *"
-                placeholder="Tapez votre réponse"
-                value={formik.values.security_answer_2}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.touched.security_answer_2 && Boolean(formik.errors.security_answer_2)}
-                helperText={formik.touched.security_answer_2 && formik.errors.security_answer_2}
-                disabled={!formik.values.security_question_2}
-                sx={{
-                  bgcolor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Question 3 */}
-            <Box 
-              sx={{ 
-                mb: 3, 
-                p: 3, 
-                bgcolor: '#f8f9fa', 
-                borderRadius: 2,
-                border: '1px solid #dee2e6',
-              }}
-            >
-              <Typography 
-                variant="subtitle1" 
-                fontWeight={600} 
-                color="#000000"
-                sx={{ mb: 2, display: 'flex', alignItems: 'center' }}
-              >
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    bgcolor: '#1976d2',
-                    color: 'white',
-                    fontSize: '0.875rem',
-                    fontWeight: 'bold',
-                    mr: 1.5,
-                  }}
-                >
-                  3
-                </Box>
-                Question 3
-              </Typography>
-              
-              <FormControl 
-                fullWidth 
-                error={formik.touched.security_question_3 && Boolean(formik.errors.security_question_3)}
-                sx={{ mb: 2 }}
-              >
-                <InputLabel id="security-question-3-label">Choisissez une question *</InputLabel>
-                <Select
-                  labelId="security-question-3-label"
-                  id="security_question_3"
-                  name="security_question_3"
-                  value={formik.values.security_question_3}
-                  label="Choisissez une question *"
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  sx={{
-                    bgcolor: 'white',
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#1976d2',
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em style={{ color: '#999' }}>Sélectionnez une question</em>
-                  </MenuItem>
-                  {getAvailableQuestions(
-                    formik.values.security_question_3,
-                    [formik.values.security_question_1, formik.values.security_question_2]
-                  ).map((question, index) => (
-                    <MenuItem 
-                      key={`q3-${index}`} 
-                      value={question}
-                      style={{
-                        color: '#000',
-                        backgroundColor: 'white',
-                        padding: '10px 16px',
-                        fontSize: '14px',
-                      }}
-                    >
-                      {question}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {formik.touched.security_question_3 && formik.errors.security_question_3 && (
-                  <FormHelperText>{formik.errors.security_question_3}</FormHelperText>
-                )}
-              </FormControl>
-
-              <TextField
-                fullWidth
-                id="security_answer_3"
-                name="security_answer_3"
-                label="Votre réponse *"
-                placeholder="Tapez votre réponse"
-                value={formik.values.security_answer_3}
-                onChange={formik.handleChange}
-                onBlur={formik.handleBlur}
-                error={formik.touched.security_answer_3 && Boolean(formik.errors.security_answer_3)}
-                helperText={formik.touched.security_answer_3 && formik.errors.security_answer_3}
-                disabled={!formik.values.security_question_3}
-                sx={{
-                  bgcolor: 'white',
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#1976d2',
-                    },
-                  }
-                }}
-              />
-            </Box>
-
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              size="large"
               sx={{ 
                 mt: 3, 
                 mb: 2,
@@ -690,7 +274,7 @@ const RegisterPage = () => {
                 backgroundColor: '#1976d2',
                 textTransform: 'none',
                 fontSize: '1rem',
-                fontWeight: 600,
+                fontWeight: 500,
                 '&:hover': {
                   backgroundColor: '#1565c0',
                 },

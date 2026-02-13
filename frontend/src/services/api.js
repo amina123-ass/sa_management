@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.45:8001/api';  // ✅ MODIFIÉ
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -40,8 +40,9 @@ apiClient.interceptors.response.use(
 
 export default apiClient;
 
+// ========================================
 // Services d'authentification
-// Services d'authentification
+// ========================================
 export const authService = {
   register: (data) => apiClient.post('/auth/register', data),
   verifyEmail: (data) => apiClient.post('/auth/verify-email', data),
@@ -52,14 +53,13 @@ export const authService = {
   forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
   resetPassword: (data) => apiClient.post('/auth/reset-password', data),
   getSecurityQuestions: (email) => apiClient.post('/auth/security-questions', { email }),
-  
-  // ✅ CORRECTION : Bon endpoint et format de données
   verifySecurityAnswers: (data) => apiClient.post('/auth/verify-security-answers', data),
-  
   getAllSecurityQuestions: () => apiClient.get('/auth/security-questions/all'),
 };
 
+// ========================================
 // Services admin
+// ========================================
 export const adminService = {
   getDashboard: () => apiClient.get('/admin/dashboard'),
   getUsers: (params) => apiClient.get('/admin/users', { params }),
@@ -73,7 +73,9 @@ export const adminService = {
   getAuditLogs: (params) => apiClient.get('/admin/audit-logs', { params }),
 };
 
+// ========================================
 // Services rôles
+// ========================================
 export const roleService = {
   getAll: (params) => apiClient.get('/admin/roles', { params }),
   getOne: (id) => apiClient.get(`/admin/roles/${id}`),
@@ -85,7 +87,9 @@ export const roleService = {
   getActive: () => apiClient.get('/roles/active'),
 };
 
+// ========================================
 // Services dictionnaires
+// ========================================
 export const dictionaryService = {
   getAll: (dictionary, params) => apiClient.get(`/dictionaries/${dictionary}`, { params }),
   getOne: (dictionary, id) => apiClient.get(`/dictionaries/${dictionary}/${id}`),
@@ -95,7 +99,9 @@ export const dictionaryService = {
   toggleStatus: (dictionary, id) => apiClient.patch(`/admin/dictionaries/${dictionary}/${id}/toggle-status`),
 };
 
+// ========================================
 // Services Campagnes
+// ========================================
 export const campagneService = {
   getAll: (params) => apiClient.get('/uas/campagnes', { params }),
   getOne: (id) => apiClient.get(`/uas/campagnes/${id}`),
@@ -105,7 +111,9 @@ export const campagneService = {
   getStatistiques: (id) => apiClient.get(`/uas/campagnes/${id}/statistiques`),
 };
 
+// ========================================
 // Services Bénéficiaires
+// ========================================
 export const beneficiaireService = {
   getAll: (params) => apiClient.get('/uas/beneficiaires', { params }),
   getOne: (id) => apiClient.get(`/uas/beneficiaires/${id}`),
@@ -135,21 +143,19 @@ export const beneficiaireService = {
     apiClient.get(`/uas/beneficiaires/campagnes/${campagneId}/statistiques-listes`),
 };
 
-// Services Kafala ✅ CORRIGÉ
+// ========================================
+// Services Kafala
+// ========================================
 export const kafalaService = {
   getAll: (params) => apiClient.get('/uas/kafalas', { params }),
   getOne: (id) => apiClient.get(`/uas/kafalas/${id}`),
   create: (formData) => apiClient.post('/uas/kafalas', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  // ✅ UPDATE CORRIGÉ : Utiliser POST avec _method au lieu de PUT
   update: (id, formData) => {
-    // Ajouter _method: PUT pour le method spoofing
     if (formData instanceof FormData) {
       formData.append('_method', 'PUT');
     }
-    
-    // Utiliser POST au lieu de PUT pour les fichiers
     return apiClient.post(`/uas/kafalas/${id}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
@@ -167,7 +173,9 @@ export const kafalaService = {
   }),
 };
 
+// ========================================
 // Services Assistances Médicales
+// ========================================
 export const assistanceMedicaleService = {
   getAll: (params) => apiClient.get('/uas/assistances-medicales', { params }),
   getOne: (id) => apiClient.get(`/uas/assistances-medicales/${id}`),
@@ -177,7 +185,9 @@ export const assistanceMedicaleService = {
   retourMateriel: (id, data) => apiClient.post(`/uas/assistances-medicales/${id}/retour-materiel`, data),
 };
 
+// ========================================
 // Services Statistiques
+// ========================================
 export const statistiquesService = {
   getCampagnesList: () => apiClient.get('/uas/statistiques/campagnes'),
   getStatistiquesCampagne: (campagneId) => 
@@ -190,7 +200,9 @@ export const statistiquesService = {
     apiClient.get('/uas/statistiques/evolution', { params }),
 };
 
+// ========================================
 // Services Réception
+// ========================================
 export const receptionService = {
   getCampagnes: (params) => apiClient.get('/reception/campagnes', { params }),
   getCampagne: (id) => apiClient.get(`/reception/campagnes/${id}`),
@@ -223,7 +235,9 @@ export const receptionService = {
     apiClient.get(`/reception/participants/canva-debug/${campagneId}`),
 };
 
-// Maintien de l'ancien service UAS pour la rétrocompatibilité
+// ========================================
+// Service UAS (rétrocompatibilité)
+// ========================================
 export const uasService = {
   getCampagnes: (params) => campagneService.getAll(params),
   getCampagne: (id) => campagneService.getOne(id),

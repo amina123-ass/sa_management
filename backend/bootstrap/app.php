@@ -12,13 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'role' => \App\Http\Middleware\CheckRole::class,
-            'reception' => \App\Http\Middleware\ReceptionMiddleware::class, // AJOUTER CECI
+    $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
-        ]);
-    })
+    $middleware->alias([
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'role' => \App\Http\Middleware\CheckRole::class,
+        'reception' => \App\Http\Middleware\ReceptionMiddleware::class,
+    ]);
+})
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();

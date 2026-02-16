@@ -1,7 +1,19 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.45:8001/api';  // ✅ MODIFIÉ
+// ========================================
+// CONFIGURATION API
+// ========================================
+const API_URL = process.env.REACT_APP_API_URL || 'http://192.168.1.45:8001/api';
 
+console.log('🔌 Configuration API:', {
+  url: API_URL,
+  environment: process.env.NODE_ENV,
+  timestamp: new Date().toISOString()
+});
+
+// ========================================
+// CRÉATION CLIENT AXIOS
+// ========================================
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -9,31 +21,113 @@ const apiClient = axios.create({
     'Accept': 'application/json',
   },
   withCredentials: true,
+  timeout: 30000, // 30 secondes
 });
 
-// Intercepteur pour ajouter le token à chaque requête
+// ========================================
+// INTERCEPTEUR REQUÊTE
+// ========================================
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    
+    // Logs de debug
+    console.log('📤 Requête API:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      fullUrl: `${config.baseURL}${config.url}`,
+      hasToken: !!token,
+      withCredentials: config.withCredentials,
+      headers: config.headers
+    });
+    
+    // Ajouter le token si disponible
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => {
+    console.error('❌ Erreur intercepteur requête:', error);
     return Promise.reject(error);
   }
 );
 
-// Intercepteur pour gérer les erreurs de réponse
+// ========================================
+// INTERCEPTEUR RÉPONSE
+// ========================================
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Logs de succès
+    console.log('✅ Réponse API:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.config.url,
+      data: response.data
+    });
+    
+    return response;
+  },
   (error) => {
+    // Logs détaillés des erreurs
+    console.error('❌ Erreur API:', {
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      url: error.config?.url,
+      fullUrl: error.config?.baseURL + error.config?.url,
+      message: error.message,
+      data: error.response?.data,
+      headers: error.response?.headers
+    });
+    
+    // Gestion erreur 401 (Non autorisé)
     if (error.response?.status === 401) {
+      console.warn('🚨 Utilisateur non autorisé - Déconnexion');
+      
+      // Sauvegarder l'URL actuelle pour redirection après login
+      const currentPath = window.location.pathname;
+      
+      // Nettoyer le stockage local
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      
+      // Rediriger vers login (sauf si déjà sur la page login)
+      if (currentPath !== '/login' && !currentPath.startsWith('/auth')) {
+        localStorage.setItem('redirectAfterLogin', currentPath);
+        window.location.href = '/login';
+      }
     }
+    
+    // Gestion erreur 403 (Interdit)
+    if (error.response?.status === 403) {
+      console.error('🚫 Accès refusé - Permissions insuffisantes');
+    }
+    
+    // Gestion erreur 404 (Non trouvé)
+    if (error.response?.status === 404) {
+      console.error('🔍 Ressource non trouvée');
+    }
+    
+    // Gestion erreur 422 (Validation échouée)
+    if (error.response?.status === 422) {
+      console.error('📝 Erreurs de validation:', error.response.data.errors);
+    }
+    
+    // Gestion erreur 500 (Erreur serveur)
+    if (error.response?.status === 500) {
+      console.error('💥 Erreur serveur interne');
+    }
+    
+    // Gestion erreur réseau
+    if (error.code === 'ECONNABORTED') {
+      console.error('⏱️ Timeout - Le serveur met trop de temps à répondre');
+    }
+    
+    if (error.code === 'ERR_NETWORK') {
+      console.error('🌐 Erreur réseau - Impossible de contacter le serveur');
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -41,7 +135,7 @@ apiClient.interceptors.response.use(
 export default apiClient;
 
 // ========================================
-// Services d'authentification
+// SERVICES D'AUTHENTIFICATION
 // ========================================
 export const authService = {
   register: (data) => apiClient.post('/auth/register', data),
@@ -58,7 +152,7 @@ export const authService = {
 };
 
 // ========================================
-// Services admin
+// SERVICES ADMIN
 // ========================================
 export const adminService = {
   getDashboard: () => apiClient.get('/admin/dashboard'),
@@ -74,7 +168,7 @@ export const adminService = {
 };
 
 // ========================================
-// Services rôles
+// SERVICES RÔLES
 // ========================================
 export const roleService = {
   getAll: (params) => apiClient.get('/admin/roles', { params }),
@@ -88,7 +182,7 @@ export const roleService = {
 };
 
 // ========================================
-// Services dictionnaires
+// SERVICES DICTIONNAIRES
 // ========================================
 export const dictionaryService = {
   getAll: (dictionary, params) => apiClient.get(`/dictionaries/${dictionary}`, { params }),
@@ -100,7 +194,7 @@ export const dictionaryService = {
 };
 
 // ========================================
-// Services Campagnes
+// SERVICES CAMPAGNES
 // ========================================
 export const campagneService = {
   getAll: (params) => apiClient.get('/uas/campagnes', { params }),
@@ -112,7 +206,7 @@ export const campagneService = {
 };
 
 // ========================================
-// Services Bénéficiaires
+// SERVICES BÉNÉFICIAIRES
 // ========================================
 export const beneficiaireService = {
   getAll: (params) => apiClient.get('/uas/beneficiaires', { params }),
@@ -144,7 +238,7 @@ export const beneficiaireService = {
 };
 
 // ========================================
-// Services Kafala
+// SERVICES KAFALA
 // ========================================
 export const kafalaService = {
   getAll: (params) => apiClient.get('/uas/kafalas', { params }),
@@ -174,7 +268,7 @@ export const kafalaService = {
 };
 
 // ========================================
-// Services Assistances Médicales
+// SERVICES ASSISTANCES MÉDICALES
 // ========================================
 export const assistanceMedicaleService = {
   getAll: (params) => apiClient.get('/uas/assistances-medicales', { params }),
@@ -186,7 +280,7 @@ export const assistanceMedicaleService = {
 };
 
 // ========================================
-// Services Statistiques
+// SERVICES STATISTIQUES
 // ========================================
 export const statistiquesService = {
   getCampagnesList: () => apiClient.get('/uas/statistiques/campagnes'),
@@ -201,7 +295,7 @@ export const statistiquesService = {
 };
 
 // ========================================
-// Services Réception
+// SERVICES RÉCEPTION
 // ========================================
 export const receptionService = {
   getCampagnes: (params) => apiClient.get('/reception/campagnes', { params }),
@@ -236,7 +330,7 @@ export const receptionService = {
 };
 
 // ========================================
-// Service UAS (rétrocompatibilité)
+// SERVICE UAS (RÉTROCOMPATIBILITÉ)
 // ========================================
 export const uasService = {
   getCampagnes: (params) => campagneService.getAll(params),
@@ -262,4 +356,59 @@ export const uasService = {
   updateAssistanceMedicale: (id, data) => assistanceMedicaleService.update(id, data),
   deleteAssistanceMedicale: (id) => assistanceMedicaleService.delete(id),
   retourMateriel: (id, data) => assistanceMedicaleService.retourMateriel(id, data),
+};
+
+// ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Télécharger un fichier blob
+ */
+export const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+/**
+ * Formater les erreurs de validation
+ */
+export const formatValidationErrors = (errors) => {
+  if (typeof errors === 'object') {
+    return Object.values(errors).flat().join(', ');
+  }
+  return errors;
+};
+
+/**
+ * Vérifier si l'utilisateur est connecté
+ */
+export const isAuthenticated = () => {
+  return !!localStorage.getItem('token');
+};
+
+/**
+ * Obtenir le token actuel
+ */
+export const getToken = () => {
+  return localStorage.getItem('token');
+};
+
+/**
+ * Obtenir l'utilisateur actuel
+ */
+export const getCurrentUser = () => {
+  const userStr = localStorage.getItem('user');
+  try {
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (error) {
+    console.error('Erreur parsing utilisateur:', error);
+    return null;
+  }
 };

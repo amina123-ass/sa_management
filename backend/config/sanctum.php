@@ -11,9 +11,8 @@ return [
     */
 
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s%s',
-        'localhost,localhost:3001,127.0.0.1,127.0.0.1:8001,192.168.1.45:3001,::1',  // ✅ MODIFIÉ
-        ',',
+        '%s%s',
+        'localhost,localhost:3001,127.0.0.1,127.0.0.1:8001,192.168.1.45:3001,192.168.1.45:8001,::1',
         Sanctum::currentApplicationUrlWithPort()
     ))),
 
@@ -35,13 +34,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Token Prefix
+    |--------------------------------------------------------------------------
+    */
+
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Sanctum Middleware
     |--------------------------------------------------------------------------
     */
 
     'middleware' => [
-        'verify_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
+        'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
         'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
+        'validate_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
     ],
 
 ];

@@ -5,9 +5,8 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copier les dépendances en premier (cache Docker layers)
-COPY package.json package-lock.json ./
-RUN npm ci --silent
+# Copier tout le projet
+COPY . .
 
 # Variables injectées depuis docker-compose build args
 ARG REACT_APP_API_URL=http://192.168.1.45:8001/api
@@ -15,8 +14,10 @@ ARG REACT_APP_NAME="SA Management"
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 ENV REACT_APP_NAME=$REACT_APP_NAME
 
-# Copier le code et builder
-COPY . .
+# npm install plus tolérant que npm ci (gère les conflits de peer deps)
+RUN npm install --legacy-peer-deps
+
+# Builder le projet
 RUN npm run build
 
 # ============================

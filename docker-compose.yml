@@ -7,7 +7,7 @@ services:
   # ============================
   mysql:
     image: mysql:8.0
-    container_name: sa_mysql
+    container_name: sa_mysql2
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: secret

@@ -50,45 +50,61 @@ RUN echo "upload_max_filesize=20M" > /usr/local/etc/php/conf.d/custom.ini \
 # ============================
 # CONFIGURATION NGINX
 # ============================
-RUN echo 'user nginx;' > /etc/nginx/nginx.conf \
-    && echo 'worker_processes auto;' >> /etc/nginx/nginx.conf \
-    && echo 'error_log /var/log/nginx/error.log warn;' >> /etc/nginx/nginx.conf \
-    && echo 'events { worker_connections 1024; }' >> /etc/nginx/nginx.conf \
-    && echo 'http {' >> /etc/nginx/nginx.conf \
-    && echo '  include /etc/nginx/mime.types;' >> /etc/nginx/nginx.conf \
-    && echo '  default_type application/octet-stream;' >> /etc/nginx/nginx.conf \
-    && echo '  sendfile on;' >> /etc/nginx/nginx.conf \
-    && echo '  client_max_body_size 20M;' >> /etc/nginx/nginx.conf \
-    && echo '  server {' >> /etc/nginx/nginx.conf \
-    && echo '    listen 8000;' >> /etc/nginx/nginx.conf \
-    && echo '    root /var/www/html/public;' >> /etc/nginx/nginx.conf \
-    && echo '    index index.php;' >> /etc/nginx/nginx.conf \
-    && echo '    location / { try_files $uri $uri/ /index.php?$query_string; }' >> /etc/nginx/nginx.conf \
-    && echo '    location ~ \.php$ {' >> /etc/nginx/nginx.conf \
-    && echo '      fastcgi_pass 127.0.0.1:9000;' >> /etc/nginx/nginx.conf \
-    && echo '      fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;' >> /etc/nginx/nginx.conf \
-    && echo '      include fastcgi_params;' >> /etc/nginx/nginx.conf \
-    && echo '      fastcgi_read_timeout 300;' >> /etc/nginx/nginx.conf \
-    && echo '    }' >> /etc/nginx/nginx.conf \
-    && echo '    location ~ /\.(?!well-known).* { deny all; }' >> /etc/nginx/nginx.conf \
-    && echo '  }' >> /etc/nginx/nginx.conf \
-    && echo '}' >> /etc/nginx/nginx.conf
+RUN cat > /etc/nginx/nginx.conf <<'EOF'
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+
+events { worker_connections 1024; }
+
+http {
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  sendfile on;
+  client_max_body_size 20M;
+
+  server {
+    listen 8000;
+    root /var/www/html/public;
+    index index.php;
+
+    location / {
+      try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+      fastcgi_pass 127.0.0.1:9000;
+      fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+      include fastcgi_params;
+      fastcgi_read_timeout 300;
+    }
+
+    location ~ /\.(?!well-known).* {
+      deny all;
+    }
+  }
+}
+EOF
 
 # ============================
 # CONFIGURATION SUPERVISOR
 # ============================
-RUN echo '[supervisord]' > /etc/supervisord.conf \
-    && echo 'nodaemon=true' >> /etc/supervisord.conf \
-    && echo 'user=root' >> /etc/supervisord.conf \
-    && echo 'logfile=/var/log/supervisord.log' >> /etc/supervisord.conf \
-    && echo '[program:nginx]' >> /etc/supervisord.conf \
-    && echo 'command=nginx -g "daemon off;"' >> /etc/supervisord.conf \
-    && echo 'autostart=true' >> /etc/supervisord.conf \
-    && echo 'autorestart=true' >> /etc/supervisord.conf \
-    && echo '[program:php-fpm]' >> /etc/supervisord.conf \
-    && echo 'command=php-fpm -F' >> /etc/supervisord.conf \
-    && echo 'autostart=true' >> /etc/supervisord.conf \
-    && echo 'autorestart=true' >> /etc/supervisord.conf
+RUN cat > /etc/supervisord.conf <<'EOF'
+[supervisord]
+nodaemon=true
+user=root
+logfile=/var/log/supervisord.log
+
+[program:nginx]
+command=nginx -g "daemon off;"
+autostart=true
+autorestart=true
+
+[program:php-fpm]
+command=php-fpm -F
+autostart=true
+autorestart=true
+EOF
 
 # ============================
 # COMPOSER
@@ -100,47 +116,80 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # ============================
 WORKDIR /var/www/html
 
-# Copier les dépendances d'abord (cache Docker layers)
+# Copier d'abord les dépendances (cache layers)
 COPY composer.json composer.lock ./
+
+# Installer vendors sans scripts (évite package:discover pendant build)
 RUN composer install \
     --no-interaction \
-    --no-scripts \
     --no-dev \
     --prefer-dist \
-    --optimize-autoloader
+    --optimize-autoloader \
+    --no-scripts
 
 # Copier le reste du code
 COPY . .
 
-# Régénérer l'autoloader avec TOUTES les classes (controllers, models, etc.)
-RUN composer dump-autoload --optimize --no-dev
+# Autoloader optimisé SANS scripts (évite encore package:discover)
+RUN composer dump-autoload --optimize --no-dev --no-scripts
 
-# Générer APP_KEY si absent dans .env
-RUN php artisan key:generate --force 2>/dev/null || true
-
-# Permissions
+# Permissions (Laravel)
 RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage \
-    && chmod -R 755 /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # ============================
 # SCRIPT DE DÉMARRAGE
 # ============================
-RUN printf '#!/bin/sh\nset -e\n\
-echo "⏳ Attente MySQL..."\n\
-until php -r "new PDO('"'"'mysql:host=${DB_HOST};port=${DB_PORT};dbname=${DB_DATABASE}'"'"', '"'"'${DB_USERNAME}'"'"', '"'"'${DB_PASSWORD}'"'"');" 2>/dev/null; do\n\
-  echo "   retry dans 3s..."; sleep 3\n\
-done\n\
-echo "✅ MySQL prêt"\n\
-php artisan config:cache\n\
-php artisan route:cache\n\
-php artisan view:cache\n\
-php artisan migrate --force\n\
-php artisan storage:link --force 2>/dev/null || true\n\
-chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache\n\
-echo "🚀 Backend démarré"\n\
-exec /usr/bin/supervisord -c /etc/supervisord.conf\n' > /start.sh \
-    && chmod +x /start.sh
+RUN cat > /start.sh <<'EOF'
+#!/bin/sh
+set -e
+
+cd /var/www/html
+
+# Créer .env si absent (utile en Docker)
+if [ ! -f .env ] && [ -f .env.example ]; then
+  cp .env.example .env
+fi
+
+# Permissions (au cas où volume bind)
+chown -R www-data:www-data storage bootstrap/cache || true
+chmod -R 775 storage bootstrap/cache || true
+
+echo "⏳ Attente MySQL..."
+until php -r "new PDO('mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_DATABASE'), getenv('DB_USERNAME'), getenv('DB_PASSWORD'));"
+do
+  echo "   retry dans 3s..."
+  sleep 3
+done
+echo "✅ MySQL prêt"
+
+# APP_KEY si manquant
+php artisan key:generate --force 2>/dev/null || true
+
+# Nettoyer + cache (safe)
+php artisan config:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
+php artisan cache:clear || true
+
+php artisan config:cache || true
+php artisan route:cache || true
+php artisan view:cache || true
+
+# Migrer
+php artisan migrate --force
+
+# Storage link (optionnel)
+php artisan storage:link --force 2>/dev/null || true
+
+# Permissions finales
+chown -R www-data:www-data storage bootstrap/cache || true
+
+echo "🚀 Backend démarré"
+exec /usr/bin/supervisord -c /etc/supervisord.conf
+EOF
+
+RUN chmod +x /start.sh
 
 EXPOSE 8000
 

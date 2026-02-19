@@ -1,36 +1,50 @@
-# Stage 1: Build
-FROM node:20-alpine AS build
+# ============================
+# ÉTAPE 1 : BUILD REACT
+# ============================
+FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copier les fichiers package
-COPY package.json package-lock.json* ./
+# Copier les dépendances en premier (cache Docker layers)
+COPY package.json package-lock.json ./
+RUN npm ci --silent
 
-# Configurer npm pour être plus tolérant aux erreurs réseau
-RUN npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm config set fetch-retries 5 && \
-    npm config set fetch-timeout 300000
+# Variables injectées depuis docker-compose build args
+ARG REACT_APP_API_URL=http://192.168.1.45:8001/api
+ARG REACT_APP_NAME="SA Management"
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+ENV REACT_APP_NAME=$REACT_APP_NAME
 
-# Installer les dépendances avec retry
-RUN npm install --legacy-peer-deps || npm install --legacy-peer-deps || npm install --legacy-peer-deps
-
-# Copier le reste de l'application
+# Copier le code et builder
 COPY . .
-
-# Build de production
 RUN npm run build
 
-# Stage 2: Production avec Nginx
+# ============================
+# ÉTAPE 2 : SERVIR AVEC NGINX
+# ============================
 FROM nginx:alpine
 
-# Copier la configuration Nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copier le build React vers nginx
+COPY --from=builder /app/build /usr/share/nginx/html
 
-# Copier les fichiers buildés depuis le stage précédent
-COPY --from=build /app/build /usr/share/nginx/html
+# Configuration Nginx pour React Router (SPA)
+RUN echo 'server {' > /etc/nginx/conf.d/default.conf \
+    && echo '  listen 80;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  index index.html;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  gzip on;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  gzip_types text/plain text/css application/json application/javascript;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {' >> /etc/nginx/conf.d/default.conf \
+    && echo '    expires 1y;' >> /etc/nginx/conf.d/default.conf \
+    && echo '    add_header Cache-Control "public, no-transform";' >> /etc/nginx/conf.d/default.conf \
+    && echo '  }' >> /etc/nginx/conf.d/default.conf \
+    && echo '  location / {' >> /etc/nginx/conf.d/default.conf \
+    && echo '    try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf \
+    && echo '  }' >> /etc/nginx/conf.d/default.conf \
+    && echo '  add_header X-Frame-Options "SAMEORIGIN";' >> /etc/nginx/conf.d/default.conf \
+    && echo '  add_header X-Content-Type-Options "nosniff";' >> /etc/nginx/conf.d/default.conf \
+    && echo '}' >> /etc/nginx/conf.d/default.conf
 
-# Exposer le port 80
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -112,6 +112,9 @@ RUN composer install \
 # Copier le reste du code
 COPY . .
 
+# Régénérer l'autoloader avec TOUTES les classes (controllers, models, etc.)
+RUN composer dump-autoload --optimize --no-dev
+
 # Générer APP_KEY si absent dans .env
 RUN php artisan key:generate --force 2>/dev/null || true
 

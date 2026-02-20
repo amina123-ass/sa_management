@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Securityquestion;
+use App\Models\SecurityQuestion;
 use Illuminate\Database\Seeder;
 
 class SecurityQuestionSeeder extends Seeder

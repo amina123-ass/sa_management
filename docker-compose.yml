@@ -58,7 +58,7 @@ services:
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: dmsps.sefrou@gmail.com
-      MAIL_PASSWORD: uyohfhnnyubypanv
+      MAIL_PASSWORD: ukitidtihxuqtrpj
       MAIL_ENCRYPTION: tls
       MAIL_FROM_ADDRESS: dmsps.sefrou@gmail.com
       MAIL_FROM_NAME: "SA Management"
